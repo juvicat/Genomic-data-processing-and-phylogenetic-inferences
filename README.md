@@ -1,227 +1,249 @@
 # Genomic Data Processing and Phylogenetic Inferences
+The present repository describes the steps of genomic data processing obtained via *target-enrichment sequencing* with the Cactaceae591 panel (Romeiro-Brito et al. 2022) and the construction of phylogenetic inferences, including data trimming, locus assembly, quality analysis, and gene and species tree construction. The required programs and commands must be executed on the Linux operating system (or the Linux Subsystem for Windows) through the *Bash* interface.
 
-This repository describes the steps for processing genomic data obtained via target-enrichment sequencing using the Cactaceae591 probe set (Romeiro-Brito et al. 2022) and constructing phylogenetic inferences, including data trimming, loci assembly, quality analysis, and gene and species tree construction. The required programs and commands must be executed on a Linux operational system (or the Linux Subsystem for Windows) through the Bash interface.
+Repository Base: The processes described here were adopted in the scientific initiation project "Multilocus Phylogeny of *Arrojadoa* Britton & Rose, a cactus endemic to eastern Brazil," developed under the guidance of Professor Dr. Evandro M. Moraes at the Laboratory of Genetic Diversity and Evolution (LaGEvol, UFSCar Sorocaba campus). The commands presented were based on the workshop "Computational Phylogenetic Analyses," taught by M. Kohler, M. Telhe, and M. Romeiro-Brito at the same institution.
 
-## Repository Basis
-The processes described here were adopted in the scientific initiation project "Multilocus Phylogeny of *Arrojadoa* Britton & Rose, a cactus endemic to eastern Brazil", developed under the guidance of Professor Dr. Evandro M. Moraes at the Laboratory of Genetic Diversity and Evolution (LaGEvol, UFSCar campus Sorocaba). The presented commands were based on the workshop "Computational Phylogenetic Analyses" taught by M. Kohler, M. Telhe, and M. Romeiro-Brito, at the same institution.
+## Table of contents
 
-## Table of Contents
-Initial Filtering of Raw Data
+1. [Initial filtering of raw data](#initial-filtering-of-raw-data)
 
-Loci Assembly
+2. [Locus assembly](#locus-assembly)
 
-Identification and Removal of Potentially Paralogous Loci
+3. [Identification and removal of possibly paralogous loci](#identification-and-removal-of-possibly-paralogous-loci)
 
-Sequence Alignment
+4. [Sequence alignment](#sequence-alignment)
 
-Polishing Aligned Sequences
+5. [Polishing aligned sequences](#polishing-aligned-sequences)
 
-Phylogenetic Inference with Maximum Likelihood
+6. [Phylogenetic inference with maximum likelihood](#phylogenetic-inference-with-maximum-likelihood)
 
-6.1 Removal of Hypervariable Regions
+   6.1 [Removal of hypervariable regions](#removal-of-hypervariable-regions)
 
-Phylogenetic Inference with Coalescent Method
+7. [Phylogenetic inference with the coalescence method](#phylogenetic-inference-with-the-coalescence-method)
 
-## Initial Filtering of Raw Data
+## Initial filtering of raw data
 **Objective**: Remove low-quality sequences and adapters to ensure a more accurate data analysis.
 
-Defining variables for both strands of sequenced DNA:
-
-´´´
-R1=(*R1.fastq)
+Defining the variables related to the two strands of sequenced DNA:
+```
+R1=(*R1.fastq) 
 R2=(*R2.fastq)
-´´´
-The fastp program removes low-quality sequences, very short sequences, and adapters from the data. Specific commands allow customizing parameter values, but here we will use the default values provided by the program. For more information, refer to: https://github.com/OpenGene/fastp.git.
+```
+
+The *fastp* program removes low-quality sequences, very short reads, and adapters from the data. Specific commands allow customization of parameter values, but here we will use the default values provided by the program. For more information, visit: https://github.com/OpenGene/fastp.git.
 
 Filtering a single sample:
+```
+fastp -i /path/to/folder -I /path/to/folder -o /path/to/folder/_trimmed.fastq -O /path/to/folder/_trimmed.fastq
+```
 
-´´´
-fastp -i /path/to/directory -I /path/to/directory -o /path/to/directory/_trimmed.fastq -O /path/to/directory/_trimmed.fastq
-´´´
+
 Filtering multiple samples:
-
-´´´
+```
 for ((i=0;i<=${#R1[@]};i++)); do fastp -i "${R1[i]}" -I "${R2[i]}" -o "${R1[i]%.fastq}_trimmed.fastq" -O "${R2[i]%.fastq}_trimmed.fastq" -j "${R1[i]}.fastp.json" -h "${R1[i]}.fastp.html" -q 20 --dont_overwrite --failed_out "failed.${R1[i]}"; done
-´´´
-After execution, files with filtered data will have the _trimmed.fastq suffix. For better organization, it is recommended to move them to a new folder.
+```
 
-## Loci Assembly
-*Objective*: Map reads to target loci (assembling) using Hybpiper (https://github.com/mossmatters/HybPiper.git).
+After execution, the filtered data files will have the suffix `_trimmed.fastq`. For better organization, it is recommended to move them to a new folder.
 
-To assemble data into loci, we will use a file with reference sequences for each locus, indicated by the -t_dna flag.
+## Locus assembly
+**Objective**: Map the reads to target loci (assembling) using *Hybpiper* (https://github.com/mossmatters/HybPiper.git).
 
-Assembling a single sample:
+To perform the assembly of the data into loci, we will use a file with reference sequences for each locus, indicated by the `-t_dna` flag.
 
-´´´
-hybpiper assemble -r sample_trimmed_R1.fastq sample_trimmed_R2.fastq -t_dna reference_file.fasta --prefix sample_name --bwa --no_padding_supercontigs --thresh 75
-´´´
+*Assembling* a single sample:
+```
+hybpiper assemble -r trimmed_sample_R1.fastq trimmed_sample_R2.fastq -t_dna reference_file.fasta --prefix sample_name --bwa --no_padding_supercontigs --thresh 75
+```
 
-Assembling multiple samples:
+*Assembling* multiple samples:
 
-Create a file listing the sample names (namelist.txt).
+Create a list file with the sample names (`namelist.txt`).
+```
+while read name; do hybpiper assemble -r trimmed_sample_R1.fastq trimmed_sample_R2.fastq -t_dna reference_file.fasta --prefix $name --bwa --no_padding_supercontigs --thresh 75; done < namelist.txt
+```
 
-´´´
-while read name; do hybpiper assemble -r sample_trimmed_R1.fastq sample_trimmed_R2.fastq -t_dna reference_file.fasta --prefix $name --bwa --no_padding_supercontigs --thresh 75; done < namelist.txt
-´´´
+The *HybPiper* also has commands to generate statistics on the assembled loci.
 
-HybPiper also has commands to generate statistics on the assembled loci.
+Generating *HybPiper* statistics for assembled loci:
 
-Generating HybPiper statistics for assembled loci:
-
-Table format (seq_lengths.tsv):
-
-´´´
+Table format (`seq_lengths.tsv`):
+```
 hybpiper stats -t_dna reference_file.fasta gene namelist.txt
-´´´
+```
 
 Heatmap format:
-
-´´´
+```
 hybpiper recovery_heatmap seq_lengths.tsv
-´´´
+```
 
-Recovering loci reads into a single multi-fasta file:
+Recovering locus reads into a single multi-fasta file:
+```
+hybpiper retrieve_sequences dna -t_dna reference_file.fasta --sample_names namelist.txt --fasta_dir target_region_folder
+```
 
-´´´
-hybpiper retrieve_sequences dna -t_dna reference_file.fasta --sample_names namelist.txt --fasta_dir target_regions_folder
-´´´
-Recovering reads of regions adjacent to loci (supercontigs):
-
-´´´
+Recovering reads from regions adjacent to loci (*supercontigs*):
+```
 hybpiper retrieve_sequences supercontig -t_dna reference_file.fasta --sample_names namelist.txt --fasta_dir supercontigs_folder
-´´´
-The statistics generated by HybPiper may indicate samples that did not meet expected values and should be removed from the dataset:
+```
 
-Create a file listing the samples to be removed (samples_to_delete.txt).
+The statistics generated by *HybPiper* may indicate samples that did not reach expected values and should be removed from the database:
 
-´´´
-for i in *.fasta; do pxrms -s $i -f /path/to/directory/samples_to_delete.txt -o "${i%.FNA}_Reduced.fasta"; done
-for i in *.FNA; do pxrms -s $i -f /path/to/directory/samples_to_delete.txt -o "${i%.FNA}_Reduced.fasta"; done
-´´´
-Remove warnings added to your sample names by the program. Use the following commands for both file formats generated (fasta and FNA):
+Create a file listing the samples to be removed (`samples_to_delete.txt`).
+```
+for i in *.fasta; do pxrms -s $i -f /path/to/folder/samples_to_delete.txt -o "${i%.FNA}_Reduced.fasta"; done
+```
 
-´´´
+Remove warnings added to your sample names by the program using the following commands:
+```
 sed -i 's/\ single_hit//g' *.fasta
 sed -i -E 's/\ multi_hit_stitched_contig_comprising_[0-9]+_hits//g' *.fasta
 sed -i 's/\.0.*/.0/g' *.fasta
 sed -i 's/\.main.*/.main/g' *.fasta
 sed -i 's/ .*//' *.fasta
 sed -i 's/\./@/g' *.fasta
-´´´
+```
 
-## Paralog Detection and Removal
-The detection of paralog loci will be performed with HybPiper following the visual inspection procedures described in Frost et al. (2024):
+## Identification and removal of potentially paralogous loci
 
-´´´
+The detection of paralogous loci will be conducted using *HybPiper* following the visual inspection procedures described in Frost et al. (2024):
+```
 hybpiper paralog_retriever namelist.txt -t_dna reference_file.fasta
-´´´
+```
 
-This command generates statistics about detected paralog loci and creates a folder named paralogs_all, containing the sequences identified as paralogs. The sequences in this folder can be aligned (using MAFFT) and used to build gene trees with IQTree:
+This command generates statistics on the detected paralogous loci and creates a folder named `paralogs_all` containing the sequences identified as paralogous. These sequences can be aligned (using *MAFFT*) and used to build gene trees with *IQTree*:
+```
+nohup sh -c 'for i in *.fasta; do mafft --reorder --auto "$i" > "path/to/folder/aligned_$i"; done' & iqtree -s aligned_sample_name_paralogs_all.fasta
+```
 
-´´´
-nohup sh -c 'for i in *.fasta; do mafft --reorder --auto "$i" > "path/to/folder/aligned_$i"; done' &
-iqtree -s aligned_sample_paralogs_all.fasta
-´´´
+The generated trees should be visually inspected to identify signs of paralogy, such as multiple copies of a sample appearing distantly on the tree. For additional guidelines on identifying paralogs via visual inspection, refer to Frost et al. (2024): [https://doi.org/10.1093/sysbio/syad076](https://doi.org/10.1093/sysbio/syad076).
 
-The generated trees should be visually reviewed to identify signs of paralogy, such as multiple copies of a sample placed distantly on the tree. For additional guidance on identifying paralogs through visual inspection, refer to Frost et al. (2024): DOI link.
+![image](https://github.com/user-attachments/assets/d74a76e8-4f6c-4b0c-92f7-2219696fd03a)
 
-IMAGEEEEMMMMMMMMM
+After identification, the paralogous loci can be removed from the database by moving them to a separate folder:
 
-After identification, paralog loci can be removed from the dataset by moving them to a separate folder:
-
-Create a list of loci identified as paralogs (paralogs_list.txt):
-
-´´´
-mkdir paralogous_loci
+Create a list of the loci identified as paralogous (`paralogs_list.txt`):
+```
+mkdir paralogous_loci 
 while read line; do mv $line ./paralogous_loci; done < paralogs_list.txt
-´´´
+```
 
 ## Sequence Alignment
-To align the sequences of each locus for all samples, we will use the MAFFT program (https://github.com/GSLBiotech/mafft). It is recommended to create specific folders to organize the alignments. The files with the alignments will have the prefix aligned_. In this repository, we will use the program's default parameters:
 
-´´´
+To align the sequences of each locus for all samples, we will use the *MAFFT* program (https://github.com/GSLBiotech/mafft). It is recommended to create specific folders to organize the alignments. The files with the alignments will have the prefix `aligned_`. In this repository, we will use the program's default parameters:
+```
 nohup sh -c 'for i in *.fasta; do mafft --reorder --auto "$i" > "path/to/folder/aligned_$i"; done' &
-´´´
+```
 
-The generated alignments will have the prefix aligned_.
+The generated alignments will have the prefix `aligned_`.
 
-## Polishing Aligned Sequences
-After alignment, a second trimming step is needed to remove positions with a high proportion of gaps. For this, we will use trimal (https://github.com/inab/trimal.git). The -gt flag sets the tolerance limit for gaps; for example, -gt 0.7 removes the "columns" (sites) of the alignment where the fraction of gaps is 30% or higher:
+## Polishing the Aligned Sequences
 
-´´´
-mkdir trimmed_alignment
-for i in *.fasta; do trimal -in $i -out ./trimmed_alignment/"$i"_trimmed.fasta -gt 0.7; done;
-´´´
+After alignment, a second trimming step is required to remove positions with a high proportion of *gaps*. For this, we will use *trimal* (https://github.com/inab/trimal.git). The `-gt` flag defines the tolerance threshold for *gaps*; for example, `-gt 0.7` removes the columns (sites) from the alignment where the fraction of *gaps* is greater than or equal to 30%:
+```
+mkdir trimmed_alignment for i in *.fasta; do trimal -in $i -out ./trimmed_alignment/"$i"_trimmed.fasta -gt 0.7; done;
+```
 
-To obtain alignment statistics, use AMAS (https://github.com/marekborowiec/AMAS.git) to generate a spreadsheet with this information, which facilitates the analysis of the impact of missing data (gaps) on the dataset.
-
-´´´
+To obtain statistics on the alignments, use *AMAS* (https://github.com/marekborowiec/AMAS.git) to generate a spreadsheet with this information, which facilitates the analysis of the impact of missing data (*gaps*) on the database:
+```
 python3 AMAS.py summary -f fasta -d dna -i *.fasta -o SummaryStats.csv
-´´´
+```
 
-## Phylogenetic Inference Using Maximum Likelihood
-We will use the IQtree program (https://github.com/iqtree/iqtree2.git) to generate a maximum likelihood tree for each locus:
+## Phylogenetic Inference using Maximum Likelihood
 
-´´´
+We will use the *IQtree* program (https://github.com/iqtree/iqtree2.git) to generate a maximum likelihood tree for each locus:
+```
 nohup sh -c 'for i in *.fasta; do iqtree2 -nt 4 -s "$i" -st DNA -m MFP -B 10000; done 2>iqtree.err' &
-´´´
+```
 
-To construct a maximum likelihood tree for all loci, the sequences of each locus and each individual need to be concatenated, forming a supermatrix. The concatenation is done with the command:
-
-´´´
+To construct the maximum likelihood tree for all loci, the sequences of each locus and each individual need to be concatenated, forming a supermatrix. The concatenation is done with the following command:
+```
 pxcat -s *fasta -p partitions.txt -o my_supermatrix.fasta
-´´´
-The -p flag generates a partition file, useful if the supermatrix needs to be "deconcatenated" later.
+```
 
-Once the supermatrix is built, we generate the species tree:
+The `-p` flag generates a partition file, useful in case the supermatrix needs to be "de-concatenated" later.
 
-´´´
+Once the supermatrix is constructed, generate the species tree:
+```
 iqtree -nt 4 -s my_supermatrix.fasta -st DNA -m MFP -B 10000
-´´´
+```
 
-# Removal of Hypervariable Regions
-To refine the supermatrix, a final trimming with spruceup (https://github.com/marekborowiec/spruceup.git) is recommended to remove hypervariable regions (outliers). To run the program, you need the supermatrix, a species tree (optional), and a configuration file with parameters. A template for this file is attached to the repository (configuration_spruceup.conf).
+### Removal of Hypervariable Regions
 
-´´´
+To refine the supermatrix, it is recommended to perform a final trimming using *spruceup* (https://github.com/marekborowiec/spruceup.git), which removes hypervariable regions (*outliers*). To run the program, the supermatrix, a species tree (optional), and a configuration file with parameters are required. A model of this file is attached to the repository (`configuration_spruceup.conf`):
+```
 python -m spruceup configuration-spruceup.conf
-´´´
+```
 
-This command generates a trimmed supermatrix (0.cutoff_value_my_supermatrix.fasta) that can be used to infer a new species tree using the maximum likelihood method. The trimmed supermatrix can also be "deconcatenated" using the partition file (partitions.txt), which is essential for preparing the data for coalescent phylogenetic inferences:
-
-´´´
+This command generates a trimmed supermatrix (`0.cutoff_value_my_supermatrix.fasta`) which can be used to infer a new species tree using the maximum likelihood method. The trimmed supermatrix can also be "de-concatenated" using the partition file (`partitions.txt`), a critical step to prepare the data for coalescent phylogenetic inferences:
+```
 python3 AMAS.py split -f fasta -d dna -i trimmed_supermatrix.fasta -l partitions.txt -u fasta -j
-´´´
+```
 
-To generate statistics for the trimmed supermatrix, use AMAS:
-
-´´´
+To generate statistics of the trimmed supermatrix, use AMAS:
+```
 python3 AMAS.py summary -f fasta -d dna -i *.fasta -o SummaryStats.csv
-´´´
+```
 
-## Phylogenetic Inference Using the Coalescent Method
-To construct a species tree using the coalescent method, first, gather all gene trees into a single file (all_gene.trees):
+## Phylogenetic Inference using the Coalescent Method
 
-´´´
+To construct a species tree using the coalescent method, first gather all the gene trees into a single file (`all_gene.trees`):
+```
 cat *.treefile > all_gene.trees
-´´´
-It is recommended to refine this file by reducing the influence of poorly supported nodes. This can be done by collapsing nodes that do not reach a minimum support value:
+```
 
-´´´
+It is recommended to polish this file by reducing the influence of nodes with low support. This is done by collapsing nodes that do not meet a minimum support value:
+```
 nw_ed all_gene.trees 'i & b<=50' o > all_gene_BS50.tree
-´´´
+```
 
-In the command above, the minimum support value was set to 50, but this threshold can be adjusted according to the characteristics of your data. For more information on this adjustment, see Simmons & Gatesy (2021): DOI link.
+In the command above, the minimum support value was set to 50, but this limit can be adjusted based on the characteristics of the data. For more information on this adjustment, refer to Simmons & Gatesy (2021): [https://doi.org/10.1016/j.ympev.2021.107092](https://doi.org/10.1016/j.ympev.2021.107092).
 
-With the compiled and refined gene trees, we will use ASTRAL III (https://github.com/smirarab/ASTRAL.git) to infer the coalescent species tree:
-
-´´´
-java -jar astral.5.7.8.jar -i all_gene_BS50.tree -o sptree_astral_BS50.tree 2> sptree_astral.log
-´´´
+With the compiled and polished gene trees, we will use *ASTRAL III* (https://github.com/smirarab/ASTRAL.git) to infer the coalescent species tree:
+```
+java astral.5.7.8.jar -i all_gene_BS50.tree -o sptree_astral_BS50.tree 2> sptree_astral.log
+```
 
 ## References
-FROST, L. A.; BEDOYA, A. M.; LAGOMARSINO, L. P. Artifactual Orthologs and the Need for Diligent Data Exploration in Complex Phylogenomic Datasets: A Museomic Case Study from the Andean Flora. Systematic Biology, Jan 3, 2024. DOI: https://doi.org/10.1093/sysbio/syad076.
 
-ROMEIRO-BRITO, M.; et al. A Target Capture Probe Set Useful for Deep - and Shallow - Level Phylogenetic Studies in Cactaceae. Genes, v. 13, n. 707, 2022. DOI: https://doi.org/10.3390/genes13040707.
+1. FROST, L. A.; BEDOYA, A. M.; LAGOMARSINO, L. P. Artifactual Orthologs and the Need for Diligent Data Exploration in Complex Phylogenomic Datasets: A Museomic Case Study from the Andean Flora. Systematic biology, 3 Jan. 2024. DOI: [https://doi.org/10.1093/sysbio/syad076](https://doi.org/10.1093/sysbio/syad076)
 
-SIMMONS, M. P.; GATESY, J. Collapsing Dubiously Resolved Gene-Tree Branches in Phylogenomic Coalescent Analyses. Molecular Phylogenetics and Evolution, v. 158, p. 107092, May 2021. DOI: https://doi.org/10.1016/j.ympev.2021.107092.
+2. ROMEIRO-BRITO, M.; et al. A Target Capture Probe Set Useful for Deep- and Shallow-Level Phylogenetic Studies in Cactaceae. Genes, v. 13, n. 707, 2022. DOI: [https://doi.org/10.3390/genes13040707](https://doi.org/10.3390/genes13040707)
+
+3. SIMMONS, M. P.; GATESY, J. Collapsing Dubiously Resolved Gene-Tree Branches in Phylogenomic Coalescent Analyses. Molecular Phylogenetics and Evolution, v. 158, p. 107092, May 2021. DOI: [https://doi.org/10.1016/j.ympev.2021.107092](https://doi.org/10.1016/j.ympev.2021.107092)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
