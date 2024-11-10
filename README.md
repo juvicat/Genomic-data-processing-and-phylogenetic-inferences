@@ -9,17 +9,17 @@ Repository Base: The processes described here were adopted in the scientific ini
 
 2. [Locus assembly](#locus-assembly)
 
-3. [Identification and removal of possibly paralogous loci](#identification-and-removal-of-possibly-paralogous-loci)
+3. [Identification and removal of potentially paralogous loci](#identification-and-removal-of-potentially-paralogous-loci)
 
 4. [Sequence alignment](#sequence-alignment)
 
 5. [Polishing aligned sequences](#polishing-aligned-sequences)
 
-6. [Phylogenetic inference with maximum likelihood](#phylogenetic-inference-with-maximum-likelihood)
+6. [Phylogenetic inference using maximum likelihood](#phylogenetic-inference-using-maximum-likelihood)
 
    6.1 [Removal of hypervariable regions](#removal-of-hypervariable-regions)
 
-7. [Phylogenetic inference with the coalescence method](#phylogenetic-inference-with-the-coalescence-method)
+7. [Phylogenetic inference using the coalescent method](#phylogenetic-inference-using-the-coalescent-method)
 
 ## Initial filtering of raw data
 **Objective**: Remove low-quality sequences and adapters to ensure a more accurate data analysis.
@@ -117,7 +117,7 @@ nohup sh -c 'for i in *.fasta; do mafft --reorder --auto "$i" > "path/to/folder/
 
 The generated trees should be visually inspected to identify signs of paralogy, such as multiple copies of a sample appearing distantly on the tree. For additional guidelines on identifying paralogs via visual inspection, refer to Frost et al. (2024): [https://doi.org/10.1093/sysbio/syad076](https://doi.org/10.1093/sysbio/syad076).
 
-![image](https://github.com/user-attachments/assets/d74a76e8-4f6c-4b0c-92f7-2219696fd03a)
+![image](https://github.com/user-attachments/assets/a233d2d5-a0ad-40eb-84eb-738afd50b552)
 
 After identification, the paralogous loci can be removed from the database by moving them to a separate folder:
 
@@ -127,7 +127,7 @@ mkdir paralogous_loci
 while read line; do mv $line ./paralogous_loci; done < paralogs_list.txt
 ```
 
-## Sequence Alignment
+## Sequence alignment
 
 To align the sequences of each locus for all samples, we will use the *MAFFT* program (https://github.com/GSLBiotech/mafft). It is recommended to create specific folders to organize the alignments. The files with the alignments will have the prefix `aligned_`. In this repository, we will use the program's default parameters:
 ```
@@ -136,7 +136,7 @@ nohup sh -c 'for i in *.fasta; do mafft --reorder --auto "$i" > "path/to/folder/
 
 The generated alignments will have the prefix `aligned_`.
 
-## Polishing the Aligned Sequences
+## Polishing aligned sequences
 
 After alignment, a second trimming step is required to remove positions with a high proportion of *gaps*. For this, we will use *trimal* (https://github.com/inab/trimal.git). The `-gt` flag defines the tolerance threshold for *gaps*; for example, `-gt 0.7` removes the columns (sites) from the alignment where the fraction of *gaps* is greater than or equal to 30%:
 ```
@@ -148,7 +148,7 @@ To obtain statistics on the alignments, use *AMAS* (https://github.com/marekboro
 python3 AMAS.py summary -f fasta -d dna -i *.fasta -o SummaryStats.csv
 ```
 
-## Phylogenetic Inference using Maximum Likelihood
+## Phylogenetic inference using maximum likelihood
 
 We will use the *IQtree* program (https://github.com/iqtree/iqtree2.git) to generate a maximum likelihood tree for each locus:
 ```
@@ -167,7 +167,7 @@ Once the supermatrix is constructed, generate the species tree:
 iqtree -nt 4 -s my_supermatrix.fasta -st DNA -m MFP -B 10000
 ```
 
-### Removal of Hypervariable Regions
+### Removal of hypervariable regions
 
 To refine the supermatrix, it is recommended to perform a final trimming using *spruceup* (https://github.com/marekborowiec/spruceup.git), which removes hypervariable regions (*outliers*). To run the program, the supermatrix, a species tree (optional), and a configuration file with parameters are required. A model of this file is attached to the repository (`configuration_spruceup.conf`):
 ```
@@ -184,7 +184,7 @@ To generate statistics of the trimmed supermatrix, use AMAS:
 python3 AMAS.py summary -f fasta -d dna -i *.fasta -o SummaryStats.csv
 ```
 
-## Phylogenetic Inference using the Coalescent Method
+## Phylogenetic inference using the coalescent method
 
 To construct a species tree using the coalescent method, first gather all the gene trees into a single file (`all_gene.trees`):
 ```
